@@ -8,6 +8,7 @@ pygame.display.set_caption("Bug1")
 clock = pygame.time.Clock()
 
 WHITE = (255, 255, 255)
+LIGHTG = (200, 200, 200)
 BLACK = (0, 0, 0)
 RED   = (255, 0, 0)
 BLUE  = (0, 0, 255)
@@ -85,7 +86,7 @@ def bug1alg_move(bug_pos, edgpos, obj, past, enlep):
 
 def connect(obj):
     if len(obj) < 2:
-        return
+        return []
     start = obj[0]
     end = obj[-1]
     if start != end:
@@ -103,7 +104,7 @@ def connect(obj):
 
 def smooth(obj):
     if len(obj) < 2:
-        return
+        return []
     new_obj = []
     for i in range(len(obj)-1):
         start = obj[i]
@@ -124,10 +125,20 @@ running = True
 while running:
     screen.fill(WHITE)
 
-    if len(obj) > 1:
-        pygame.draw.lines(screen, BLACK, False, obj, 2)
+    if len(obj) > 2:
+        obj_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        obj_surf.fill((0,0,0,0))
+        pygame.draw.polygon(obj_surf, LIGHTG, obj)
+        obj_mask = pygame.mask.from_surface(obj_surf)
+        pygame.draw.polygon(obj_surf, BLACK, obj, width=1)
+        screen.blit(obj_surf, (0, 0))
 
-    pygame.draw.circle(screen, RED, (int(bug_pos[0]), int(bug_pos[1])), bug_size)
+    bug_surf = pygame.Surface((bug_size*2, bug_size*2), pygame.SRCALPHA)
+    bug_surf.fill((0,0,0,0))
+    pygame.draw.circle(bug_surf, RED, (bug_size, bug_size), bug_size)
+    bug_mask = pygame.mask.from_surface(bug_surf)
+    screen.blit(bug_surf, (bug_pos[0]-bug_size, bug_pos[1]-bug_size))
+
     pygame.draw.circle(screen, BLUE, goal_point, 4)
     
     for event in pygame.event.get():
@@ -150,14 +161,17 @@ while running:
                 connect(obj)
                 obj = smooth(obj)
                 drawing = False
-
+        elif event.type == pygame.KEYDOWN:
+            if event.type == pygame.K_SPACE:
+                pass
+    
     if moving:
         if contact:
             edgpos = bug1alg_move(bug_pos, edgpos, obj, past, enlep)
             if edgpos == None:
                 contact = False
                 enlep = [-2, -2]
-                
+                ###
         else:
             normal_move(bug_pos, goal_point)
             edgpos = is_contact(bug_pos, obj, past)
