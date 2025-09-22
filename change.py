@@ -4,7 +4,7 @@ import math
 pygame.init()
 WIDTH, HEIGHT = 800, 600
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Bug1 Mask")
+pygame.display.set_caption("Bug1")
 clock = pygame.time.Clock()
 
 WHITE = (255, 255, 255)
@@ -13,7 +13,7 @@ BLACK = (0, 0, 0)
 RED   = (255, 0, 0)
 BLUE  = (0, 0, 255)
 
-# =====================================================
+# def =====================================================
 bug_pos = [100, 100]
 goal_point = [700, 500]
 bug_size = 4
@@ -26,7 +26,7 @@ obj = []
 past = []
 edgpos = None
 enlep = [-2, -2]
-# =====================================================
+# func =====================================================
 def distance(p1, p2):
     return math.hypot(p2[0]-p1[0], p2[1]-p1[1])
 
@@ -40,18 +40,23 @@ def normal_move(bug_pos, goal_point):
         bug_pos[0] += dx / dist
         bug_pos[1] += dy / dist
 
-def bug1alg_move(bug_pos, edgpos, obj_outline, past, enlep):
-    # 외곽을 따라 이동
-    if edgpos is None:
-        return None
-    to = (edgpos + 1) % len(obj_outline)
-    bug_pos[0], bug_pos[1] = obj_outline[to]
-    past.append(obj_outline[to])
-    if distance(obj_outline[to], goal_point) <= distance(obj_outline[enlep[1]], goal_point):
-        enlep[1] = to
-    if to == enlep[0]:
-        enlep[0] = -2
-    return to
+def bug1alg_move(bug_pos, edgpos, obj_exp, past, enlep):
+    if enlep[0] == -2:
+        to = (edgpos - 1) % len(obj_exp)
+        bug_pos[0], bug_pos[1] = obj_exp[to]
+        if to == enlep[1]:
+            return None
+        else:
+            return to
+    else:
+        to = (edgpos + 1) % len(obj_exp)
+        bug_pos[0], bug_pos[1] = obj_exp[to]
+        past.append(obj_exp[to])
+        if distance(obj_exp[to], goal_point) <= distance(obj_exp[enlep[1]], goal_point):
+            enlep[1] = to
+        if to == enlep[0]:
+            enlep[0] = -2
+        return to
 
 def connect(obj):
     if len(obj) < 2:
@@ -90,29 +95,30 @@ def smooth(obj):
     new_obj.append(obj[-1])
     return new_obj
 
-# =====================================================
+# main =====================================================
 running = True
 while running:
     screen.fill(WHITE)
 
-    # ==================== 도형 처리 ====================
-    obj_outline = []
-    if len(obj) > 2:
-        obj_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        obj_surf.fill((0,0,0,0))
-        pygame.draw.polygon(obj_surf, LIGHTG, obj)
-        obj_mask = pygame.mask.from_surface(obj_surf)
-        # 외곽점 저장 (outline)
-        expan = obj_mask.copy()
-        for dx in range(-bug_size, bug_size+1):
-            for dy in range(-bug_size, bug_size+1):
-                if dx*dx + dy*dy <= bug_size*bug_size:
-                    expan.draw(obj_mask, (dx, dy))
-        obj_outline = expan.outline()
-        pygame.draw.polygon(obj_surf, BLACK, obj, width=1)
-        screen.blit(obj_surf, (0,0))
+    obj_exp = []
+    if drawing:
+        if len(obj) > 2:
+            pygame.draw.lines(screen, BLACK, False, obj, 2)
+    else:
+        if len(obj) > 2:
+            obj_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            obj_surf.fill((0,0,0,0))
+            pygame.draw.polygon(obj_surf, LIGHTG, obj)
+            obj_mask = pygame.mask.from_surface(obj_surf)
+            expan = obj_mask.copy()
+            for dx in range(-bug_size, bug_size+1):
+                for dy in range(-bug_size, bug_size+1):
+                    if dx*dx + dy*dy <= bug_size*bug_size:
+                        expan.draw(obj_mask, (dx, dy))
+            obj_exp = expan.outline()
+            pygame.draw.polygon(obj_surf, BLACK, obj, width=1)
+            screen.blit(obj_surf, (0,0))
 
-    # ==================== 버그 처리 ====================
     bug_surf = pygame.Surface((bug_size*2, bug_size*2), pygame.SRCALPHA)
     bug_surf.fill((0,0,0,0))
     pygame.draw.circle(bug_surf, RED, (bug_size, bug_size), bug_size)
@@ -121,7 +127,6 @@ while running:
 
     pygame.draw.circle(screen, BLUE, goal_point, 4)
 
-    # ==================== 이벤트 처리 ====================
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -143,12 +148,14 @@ while running:
                 obj = smooth(obj)
                 drawing = False
 
-    # ==================== 이동 처리 ====================
-    if moving and obj_outline:
+    if moving and obj_exp:
         if contact:
-            edgpos = bug1alg_move(bug_pos, edgpos, obj_outline, past, enlep)
             if edgpos == None:
-                pass
+                prev_pos = bug_pos.copy()
+                normal_move(bug_pos, goal_point)
+                contact = False
+            else:
+                edgpos = bug1alg_move(bug_pos, edgpos, obj_exp, past, enlep)
         else:
             prev_pos = bug_pos.copy()
             normal_move(bug_pos, goal_point)
@@ -156,10 +163,9 @@ while running:
             offset_y = bug_pos[1]-bug_size
             
             if obj_mask.overlap(bug_mask, (int(offset_x), int(offset_y))):
-                bug_pos = prev_pos  # 내부로 들어가기 전 위치로 복귀
-                # 가장 가까운 외곽점 찾아 edgpos 초기화
+                bug_pos = prev_pos
                 min_dist = float('inf')
-                for i, pt in enumerate(obj_outline):
+                for i, pt in enumerate(obj_exp):
                     d = distance(pt, bug_pos)
                     if d < min_dist:
                         min_dist = d
@@ -167,8 +173,6 @@ while running:
                 enlep[0] = edgpos
                 enlep[1] = edgpos
                 contact = True
-
-        # 목표 도착 체크
         if distance(bug_pos, goal_point) == 0:
             moving = False
 
