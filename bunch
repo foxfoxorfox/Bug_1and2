@@ -1,0 +1,13 @@
+shape_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+pygame.draw.polygon(shape_surf, (255,255,255), obj)  # 도형 채우기
+shape_mask = pygame.mask.from_surface(shape_surf)
+
+# bug 반지름만큼 팽창한 마스크 생성
+expanded_mask = shape_mask.copy()
+for dx in range(-bug_size, bug_size+1):
+    for dy in range(-bug_size, bug_size+1):
+        if dx*dx + dy*dy <= bug_size*bug_size:  # 원 모양으로 확장
+            expanded_mask.draw(shape_mask, (dx, dy))
+
+# 외곽선 추출
+outline = expanded_mask.outline()

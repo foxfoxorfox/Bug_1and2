@@ -165,7 +165,7 @@ while running:
                 enlep[0] = edgpos
                 enlep[1] = edgpos
                 contact = True
-        # 도착
+        
         if distance(bug_pos, goal_point) == 0:
             print(len(obj))
             moving = False
