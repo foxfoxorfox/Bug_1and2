@@ -23,7 +23,6 @@ contact = False
 
 drawing = False
 obj = []
-past = []
 edgpos = None
 enlep = [-2, -2]
 # func =====================================================
@@ -40,7 +39,7 @@ def normal_move(bug_pos, goal_point):
         bug_pos[0] += dx / dist
         bug_pos[1] += dy / dist
 
-def bug1alg_move(bug_pos, edgpos, obj_exp, past, enlep):
+def bug1alg_move(bug_pos, edgpos, obj_exp, enlep):
     if enlep[0] == -2:
         to = (edgpos - 1) % len(obj_exp)
         bug_pos[0], bug_pos[1] = obj_exp[to]
@@ -52,7 +51,6 @@ def bug1alg_move(bug_pos, edgpos, obj_exp, past, enlep):
     else:
         to = (edgpos + 1) % len(obj_exp)
         bug_pos[0], bug_pos[1] = obj_exp[to]
-        past.append(obj_exp[to])
         if distance(obj_exp[to], goal_point) <= distance(obj_exp[enlep[1]], goal_point):
             enlep[1] = to
         if to == enlep[0]:
@@ -138,7 +136,6 @@ while running:
                 obj.append(list(event.pos))
             elif event.button == 3:
                 bug_pos = [100, 100]
-                past = []
                 moving = True
         elif event.type == pygame.MOUSEMOTION:
             if drawing:
@@ -156,7 +153,7 @@ while running:
                 normal_move(bug_pos, goal_point)
                 contact = False
             else:
-                edgpos = bug1alg_move(bug_pos, edgpos, obj_exp, past, enlep)
+                edgpos = bug1alg_move(bug_pos, edgpos, obj_exp, enlep)
         else:
             prev_pos = bug_pos.copy()
             normal_move(bug_pos, goal_point)
