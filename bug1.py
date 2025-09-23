@@ -45,6 +45,7 @@ def bug1alg_move(bug_pos, edgpos, obj_exp, past, enlep):
         to = (edgpos - 1) % len(obj_exp)
         bug_pos[0], bug_pos[1] = obj_exp[to]
         if to == enlep[1]:
+            enlep[1] = -2
             return None
         else:
             return to

@@ -15,41 +15,46 @@ BLUE  = (0, 0, 255)
 
 # def =====================================================
 bug_pos = [100, 100]
+start_point = [100, 100]
 goal_point = [700, 500]
 bug_size = 4
 speed = 1
 moving = False
 contact = False
 
-m_line = None
+mA = None
+mB = None
+mc = None
+
+elnps = []
 
 drawing = False
 obj = []
 past = []
 edgpos = None
-enlep = [-2, -2]
 # func =====================================================
 def distance(p1, p2):
     return math.hypot(p2[0]-p1[0], p2[1]-p1[1])
 
-def normal_move(bug_pos, goal_point):
+def mline_move(bug_pos, start_point, goal_point):
     dx = goal_point[0]-bug_pos[0]
     dy = goal_point[1]-bug_pos[1]
     dist = math.hypot(dx, dy)
-    if dist < 1:
+    if dist < 1.5:
         bug_pos[0], bug_pos[1] = goal_point
     else:
-        bug_pos[0] += dx / dist
-        bug_pos[1] += dy / dist
+        mx = goal_point[0]-start_point[0]
+        my = goal_point[1]-start_point[1]
+        mist = math.hypot(mx, my)
+        bug_pos[0] += mx / mist
+        bug_pos[1] += my / mist
 
-def bug2alg_move(bug_pos, edgpos, obj_exp, past, enlep):
+def bug2alg_move(bug_pos, edgpos, obj_exp, elnps):
     to = (edgpos + 1) % len(obj_exp)
     bug_pos[0], bug_pos[1] = obj_exp[to]
-    past.append(obj_exp[to])
-    if distance(obj_exp[to], goal_point) <= distance(obj_exp[enlep[1]], goal_point):
-        enlep[1] = to
-    if to == enlep[0]:
-        enlep[0] = -2
+    if ((abs((mA*bug_pos[0]) + (mB*bug_pos[1]) + mC)) / math.hypot(mA, mB)) < 1.5:
+        if to not in elnps:
+            return None
     return to
 
 def connect(obj):
@@ -130,9 +135,13 @@ while running:
                 obj = []
                 obj.append(list(event.pos))
             elif event.button == 3:
-                bug_pos = [100, 100]
-                past = []
-                m_line = ()
+                bug_pos = start_point.copy()
+                ##
+                mA = goal_point[1] - bug_pos[1]
+                mB = bug_pos[0] - goal_point[0]
+                mC = (goal_point[0]*bug_pos[1]) - (bug_pos[0]*goal_point[1])
+                elnps = []
+                ##
                 moving = True
         elif event.type == pygame.MOUSEMOTION:
             if drawing:
@@ -147,17 +156,14 @@ while running:
         if contact:
             if edgpos == None:
                 prev_pos = bug_pos.copy()
-                normal_move(bug_pos, goal_point)
+                mline_move(bug_pos, start_point, goal_point)
                 contact = False
             else:
-                edgpos = bug2alg_move(bug_pos, edgpos, obj_exp, past, enlep)
+                edgpos = bug2alg_move(bug_pos, edgpos, obj_exp, elnps)
         else:
             prev_pos = bug_pos.copy()
-            normal_move(bug_pos, goal_point)
-            offset_x = bug_pos[0]-bug_size
-            offset_y = bug_pos[1]-bug_size
-            
-            if obj_mask.overlap(bug_mask, (int(offset_x), int(offset_y))):
+            mline_move(bug_pos, start_point, goal_point)
+            if obj_mask.overlap(bug_mask, (int(bug_pos[0]-bug_size), int(bug_pos[1]-bug_size))):
                 bug_pos = prev_pos
                 min_dist = float('inf')
                 for i, pt in enumerate(obj_exp):
@@ -165,8 +171,7 @@ while running:
                     if d < min_dist:
                         min_dist = d
                         edgpos = i
-                enlep[0] = edgpos
-                enlep[1] = edgpos
+                elnps.append(i)
                 contact = True
         if distance(bug_pos, goal_point) == 0:
             moving = False
