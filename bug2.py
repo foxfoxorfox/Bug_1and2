@@ -49,18 +49,9 @@ def mline_move(bug_pos, start_point, goal_point):
         bug_pos[0] += mx / mist
         bug_pos[1] += my / mist
 
-def bug2alg_move(bug_pos, edgpos, obj_exp, elnps):
+def bug2alg_move(bug_pos, edgpos, obj_exp):
     to = (edgpos + 1) % len(obj_exp)
     bug_pos[0], bug_pos[1] = obj_exp[to]
-    if ((abs((mA*bug_pos[0]) + (mB*bug_pos[1]) + mC)) / math.hypot(mA, mB)) <= 1.0:
-        print(((abs((mA*bug_pos[0]) + (mB*bug_pos[1]) + mC)) / math.hypot(mA, mB)))
-        if distance(bug_pos, obj_exp[elnps[-1]]) >= 8:
-            if to not in elnps:
-                # dummy = bug_pos.copy()
-                # mline_move(dummy, start_point, goal_point)
-                # if obj_mask.overlap(bug_mask, (int(dummy[0]-bug_size), int(dummy[1]-bug_size))):
-                #     return to
-                return None
     return to
 
 def connect(obj):
@@ -160,12 +151,16 @@ while running:
 
     if moving and obj_exp:
         if contact:
+            edgpos = bug2alg_move(bug_pos, edgpos, obj_exp)
+            if ((abs((mA*bug_pos[0]) + (mB*bug_pos[1]) + mC)) / math.hypot(mA, mB)) <= 1.0:
+                if distance(bug_pos, obj_exp[elnps[-1]]) >= 8:
+                    if edgpos not in elnps:
+                        elnps.append(edgpos)
+                        edgpos = None
             if edgpos == None:
                 prev_pos = bug_pos.copy()
                 mline_move(bug_pos, start_point, goal_point)
                 contact = False
-            else:
-                edgpos = bug2alg_move(bug_pos, edgpos, obj_exp, elnps)
         else:
             prev_pos = bug_pos.copy()
             mline_move(bug_pos, start_point, goal_point)
@@ -177,7 +172,7 @@ while running:
                     if d < min_dist:
                         min_dist = d
                         edgpos = i
-                elnps.append(i)
+                elnps.append(edgpos)
                 contact = True
         if distance(bug_pos, goal_point) == 0:
             moving = False

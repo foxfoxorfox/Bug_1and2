@@ -4,7 +4,7 @@ import math
 pygame.init()
 WIDTH, HEIGHT = 800, 600
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Bug1 Multiple Obstacles")
+pygame.display.set_caption("Bug1")
 clock = pygame.time.Clock()
 
 WHITE = (255, 255, 255)
@@ -13,25 +13,21 @@ BLACK = (0, 0, 0)
 RED   = (255, 0, 0)
 BLUE  = (0, 0, 255)
 
-# =====================================================
+# def =====================================================
 bug_pos = [100, 100]
 goal_point = [700, 500]
 bug_size = 4
 speed = 1
 moving = False
+contact = False
 
 drawing = False
-current_obj = []        # 마우스로 그리는 도형 임시 저장
-objs = []               # 모든 도형 좌표 리스트
-obj_masks = []          # 각 도형 마스크
-obj_exps = []           # 각 도형 외곽점
-
-contact = False
-contact_obj_index = None
-edgpos_list = []        # 각 도형 별 Bug1 위치
-enlep_list = []         # 각 도형 별 최소 거리 추적
-
-# =====================================================
+obj = []
+objs = []
+objnum = -1
+edgpos = None
+enlep = [-2, -2]
+# func =====================================================
 def distance(p1, p2):
     return math.hypot(p2[0]-p1[0], p2[1]-p1[1])
 
@@ -100,23 +96,30 @@ def smooth(obj):
     new_obj.append(obj[-1])
     return new_obj
 
-# =====================================================
+# main =====================================================
 running = True
 while running:
     screen.fill(WHITE)
 
-    # --------------------- 도형 그리기 ---------------------
-    for i, obj in enumerate(objs):
-        obj_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        obj_surf.fill((0,0,0,0))
-        pygame.draw.polygon(obj_surf, LIGHTG, obj)
-        pygame.draw.polygon(obj_surf, BLACK, obj, width=1)
-        screen.blit(obj_surf, (0,0))
-
-    if drawing and len(current_obj) > 1:
-        pygame.draw.lines(screen, BLACK, False, current_obj, 2)
-
-    # --------------------- 버그 그리기 ---------------------
+    if drawing:
+        for o in objs:
+            if len(o["outline"]) > 2:
+                obj_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                obj_surf.fill((0,0,0,0))
+                pygame.draw.polygon(obj_surf, LIGHTG, o["outline"])
+                pygame.draw.polygon(obj_surf, BLACK, o["outline"], width=1)
+                screen.blit(obj_surf, (0,0))
+        if len(obj) > 2:
+            pygame.draw.lines(screen, BLACK, False, obj, 2)
+    else:
+        for o in objs:
+            if len(o["outline"]) > 2:
+                obj_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                obj_surf.fill((0,0,0,0))
+                pygame.draw.polygon(obj_surf, LIGHTG, o["outline"])
+                pygame.draw.polygon(obj_surf, BLACK, o["outline"], width=1)
+                screen.blit(obj_surf, (0,0))
+                
     bug_surf = pygame.Surface((bug_size*2, bug_size*2), pygame.SRCALPHA)
     bug_surf.fill((0,0,0,0))
     pygame.draw.circle(bug_surf, RED, (bug_size, bug_size), bug_size)
@@ -125,75 +128,94 @@ while running:
 
     pygame.draw.circle(screen, BLUE, goal_point, 4)
 
-    # --------------------- 이벤트 처리 ---------------------
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
+                obj = []
                 drawing = True
-                current_obj = [list(event.pos)]
+                obj.append(list(event.pos))
             elif event.button == 3:
                 bug_pos = [100, 100]
                 moving = True
-        elif event.type == pygame.MOUSEMOTION and drawing:
-            current_obj.append(list(event.pos))
-        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1 and drawing:
-            connect(current_obj)
-            current_obj = smooth(current_obj)
-            # 도형 저장
-            objs.append(current_obj)
-            # 마스크 및 외곽 계산
-            obj_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-            obj_surf.fill((0,0,0,0))
-            pygame.draw.polygon(obj_surf, LIGHTG, current_obj)
-            mask = pygame.mask.from_surface(obj_surf)
-            expan = mask.copy()
-            for dx in range(-bug_size, bug_size+1):
-                for dy in range(-bug_size, bug_size+1):
-                    if dx*dx + dy*dy <= bug_size*bug_size:
-                        expan.draw(mask, (dx, dy))
-            obj_masks.append(mask)
-            obj_exps.append(expan.outline())
-            # Bug1 관련 초기화
-            edgpos_list.append(None)
-            enlep_list.append([-2,-2])
-            drawing = False
+        elif event.type == pygame.MOUSEMOTION:
+            if drawing:
+                obj.append(list(event.pos))
+        elif event.type == pygame.MOUSEBUTTONUP:
+            if event.button == 1:
+                connect(obj)
+                obj = smooth(obj)
+                
+                obj_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                obj_surf.fill((0,0,0,0))
+                pygame.draw.polygon(obj_surf, LIGHTG, obj)
+                new_mask = pygame.mask.from_surface(obj_surf)
 
-    # --------------------- 이동 처리 ---------------------
+                merg = False
+                for o in objs:
+                    if o["mask"].overlap(new_mask, (0,0)):
+                        o["mask"].draw(new_mask, (0,0))
+                        o["outline"] = o["mask"].outline()
+                        expan = o["mask"].copy()
+                        for dx in range(-bug_size, bug_size+1):
+                            for dy in range(-bug_size, bug_size+1):
+                                if dx*dx + dy*dy <= bug_size*bug_size:
+                                    expan.draw(o["mask"], (dx, dy))
+                        o["expan"] = expan.outline()
+                        merg = True
+                if not merg:
+                    expan = new_mask.copy()
+                    for dx in range(-bug_size, bug_size+1):
+                        for dy in range(-bug_size, bug_size+1):
+                            if dx*dx + dy*dy <= bug_size*bug_size:
+                                expan.draw(new_mask, (dx, dy))
+                    objs.append({
+                        "mask": new_mask,
+                        "outline": new_mask.outline(),
+                        "expan": expan.outline()
+                    })
+                drawing = False
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_z:
+                bug_pos = [100, 100]
+                objs = []
+                ## reset
+                pass
+            elif event.key == pygame.K_SPACE:
+                ## start
+                pass
+
     if moving:
-        prev_pos = bug_pos.copy()
-        normal_move(bug_pos, goal_point)
-        contact = False
-        contact_obj_index = None
-
-        # 모든 도형과 충돌 체크
-        for i, (mask, exp) in enumerate(zip(obj_masks, obj_exps)):
-            offset_x = int(bug_pos[0]-bug_size)
-            offset_y = int(bug_pos[1]-bug_size)
-            if mask.overlap(bug_mask, (offset_x, offset_y)):
-                bug_pos = prev_pos
-                min_dist = float('inf')
-                for j, pt in enumerate(exp):
-                    d = distance(pt, bug_pos)
-                    if d < min_dist:
-                        min_dist = d
-                        edgpos_list[i] = j
-                        enlep_list[i] = [j,j]
-                contact = True
-                contact_obj_index = i
-                break  # 한 도형만 접촉 처리
-
-        # Bug1 알고리즘 적용
-        if contact and contact_obj_index is not None:
-            edgpos_list[contact_obj_index] = bug1alg_move(
-                bug_pos,
-                edgpos_list[contact_obj_index],
-                obj_exps[contact_obj_index],
-                enlep_list[contact_obj_index]
-            )
-
-        if distance(bug_pos, goal_point) < 1:
+        if contact:
+            if edgpos == None:
+                prev_pos = bug_pos.copy()
+                normal_move(bug_pos, goal_point)
+                contact = False
+                edgpos = None
+            else:
+                edgpos = bug1alg_move(bug_pos, edgpos, oexp, enlep)
+        else:
+            prev_pos = bug_pos.copy()
+            normal_move(bug_pos, goal_point)
+            offset_x = bug_pos[0]-bug_size
+            offset_y = bug_pos[1]-bug_size
+            oexp = None
+            for o in objs:
+                if o["mask"].overlap(bug_mask, (int(offset_x), int(offset_y))):
+                    oexp = o["expan"].copy()
+                    bug_pos = prev_pos
+                    min_dist = float('inf')
+                    for i, pt in enumerate(oexp):
+                        d = distance(pt, bug_pos)
+                        if d < min_dist:
+                            min_dist = d
+                            edgpos = i
+                    enlep[0] = edgpos
+                    enlep[1] = edgpos
+                    contact = True
+                    break
+        if distance(bug_pos, goal_point) == 0:
             moving = False
 
     pygame.display.flip()
